@@ -40,7 +40,7 @@ main{max-width:900px;margin:0 auto 130px;padding:16px}.status{background:#fff;bo
 .loginCard{width:min(520px,100%);background:#fff;border-radius:22px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .loginTitle{font-size:25px;font-weight:900;color:var(--green);margin-bottom:6px}.loginSub{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px}
 .loginLabel{font-size:13px;font-weight:800;margin-bottom:6px}.loginSelect,.newIdInput{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:16px;margin-bottom:10px}
-.loginBtn{width:100%;padding:14px;background:var(--green);color:#fff;font-size:17px}
+.loginBtn{width:100%;padding:14px;background:var(--green);color:#fff;font-size:17px}.lastIdBtn{width:100%;padding:14px;background:#f8c923;color:#18231d;font-size:17px;margin-bottom:10px}
 .addIdBtn{width:100%;padding:12px;background:#eef5f1;color:var(--green);margin-top:8px}
 .profileBar{max-width:900px;margin:0 auto;padding:8px 16px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.profileName{font-size:12px;color:var(--muted)}.switchId{padding:8px 10px;background:#eef5f1;color:var(--green);border-radius:10px}
 .hidden{display:none!important}
@@ -94,6 +94,7 @@ main{max-width:900px;margin:0 auto 130px;padding:16px}.status{background:#fff;bo
   <div class="loginCard">
     <div class="loginTitle">WIN5 買い目決定ツール</div>
     <div class="loginSub">使用するIDを選択してください。IDごとに保存データを分けて管理します。</div>
+    <button id="lastIdBtn" class="lastIdBtn hidden">前回使用したIDで開始</button>
     <div class="loginLabel">ID</div>
     <select id="profileSelect" class="loginSelect"></select>
     <button id="loginBtn" class="loginBtn">このIDで開始</button>
@@ -152,6 +153,14 @@ function migrateLegacyForProfile(profile){
 function showLogin(){
   const profiles=profileList();
   profileSelect.innerHTML=profiles.length?profiles.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join(""):`<option value="">IDを追加してください</option>`;
+  const last=localStorage.getItem("win5_last_profile");
+  if(last && profiles.includes(last)){
+    lastIdBtn.textContent=`前回使用したID「${last}」で開始`;
+    lastIdBtn.classList.remove("hidden");
+    profileSelect.value=last;
+  }else{
+    lastIdBtn.classList.add("hidden");
+  }
   loginOverlay.classList.remove("hidden");
 }
 function startProfile(profile){
@@ -348,6 +357,10 @@ showSavedBottom.addEventListener("click",renderSaved);
 toTop.addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"}));
 switchId.addEventListener("click",showLogin);
 loginBtn.addEventListener("click",()=>startProfile(profileSelect.value));
+lastIdBtn.addEventListener("click",()=>{
+  const last=localStorage.getItem("win5_last_profile");
+  if(last) startProfile(last);
+});
 addIdBtn.addEventListener("click",()=>newIdArea.classList.toggle("hidden"));
 saveNewId.addEventListener("click",()=>{
   const id=safeProfileId(newIdInput.value);
