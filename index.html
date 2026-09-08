@@ -33,7 +33,7 @@ main{max-width:900px;margin:0 auto 130px;padding:16px}.status{background:#fff;bo
 .sheetbody{padding:14px}.savedSummary{background:var(--green);color:#fff;border-radius:14px;padding:13px;margin-bottom:12px;line-height:1.6}
 .ticket{background:#fff;border:1px solid var(--line);border-radius:15px;margin-bottom:12px;overflow:hidden}.tickethead{padding:12px 13px;background:#f7faf8;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.ticketnum{font-size:18px;font-weight:900}.ticketmeta{font-size:12px;color:var(--muted)}
 .ticketbody{padding:11px 13px}.ticketRace{display:grid;grid-template-columns:76px 1fr;gap:8px;padding:7px 0;border-bottom:1px dashed #e2e8e4}.ticketRace:last-child{border-bottom:0}.ticketRaceName{font-weight:800;font-size:13px}.nums{font-weight:900}.ticketfoot{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:#fafcfa;border-top:1px solid var(--line)}
-.del{background:#fff1f0;color:var(--danger);padding:8px 11px;border:1px solid #f4c7c3}.danger{width:100%;background:#fff;color:var(--danger);border:1px solid #efb8b2;padding:12px;margin-top:4px}
+.ticketActions{display:flex;gap:8px;flex-wrap:wrap}.editBtn,.copyBtn{padding:8px 11px;border:1px solid var(--line);background:#fff;color:var(--green)}.saveEdit{padding:10px 12px;background:var(--green);color:#fff}.cancelEdit{padding:10px 12px;background:#eef2ef;color:var(--text)}.editGrid{display:grid;gap:10px}.editRace{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}.editRaceTitle{font-weight:900;margin-bottom:8px}.editHorses{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.editHorse input{position:absolute;opacity:0}.editHorse label{display:block;text-align:center;border:1px solid var(--line);border-radius:9px;padding:8px 2px;font-weight:800}.editHorse input:checked+label{background:#e6f4ec;border-color:var(--green)}.editFooter{display:flex;gap:8px;margin-top:12px}.del{background:#fff1f0;color:var(--danger);padding:8px 11px;border:1px solid #f4c7c3}.danger{width:100%;background:#fff;color:var(--danger);border:1px solid #efb8b2;padding:12px;margin-top:4px}
 .empty{text-align:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px 16px;color:var(--muted)}
 @media(min-width:700px){.controls{grid-template-columns:1fr 260px}.horses{grid-template-columns:repeat(6,1fr)}}
 </style>
@@ -41,7 +41,7 @@ main{max-width:900px;margin:0 auto 130px;padding:16px}.status{background:#fff;bo
 <body>
 <header><div class="wrap">
 <div class="title">WIN5 買い目決定ツール</div>
-<div class="sub">対象レース・馬番選択・点数計算・買い目保存</div>
+<div class="sub">対象レース・馬番選択・点数計算・買い目保存・修正</div>
 <div class="controls">
 <div class="datebox"><label>対象日</label><input id="date" type="date"></div>
 <button id="load" class="load">対象5レースを表示</button>
@@ -201,9 +201,58 @@ function renderSaved(){
         <div class="ticketbody">
           ${t.races.map((r,ri)=>`<div class="ticketRace"><div class="ticketRaceName">WIN5-${ri+1}<br>${escapeHtml(r.title)}</div><div class="nums">${r.horses.map(h=>h.no).join("・")}</div></div>`).join("")}
         </div>
-        <div class="ticketfoot"><strong>${t.points.toLocaleString()}点</strong><button class="del" data-del="${t.id}">この口を削除</button></div>
+        <div class="ticketfoot"><strong>${t.points.toLocaleString()}点</strong><div class="ticketActions"><button class="editBtn" data-edit="${t.id}">修正</button><button class="copyBtn" data-copy="${t.id}">コピーして新規作成</button><button class="del" data-del="${t.id}">この口を削除</button></div></div>
       </div>`).join("")}
     <button id="deleteAllSaved" class="danger">この日付の保存データをすべて削除</button>`;
+
+  savedBody.querySelectorAll("[data-copy]").forEach(b=>b.addEventListener("click",()=>{
+    const srcTicket=getSaved().find(x=>x.id===+b.dataset.copy);
+    if(!srcTicket)return;
+    state=srcTicket.races.map((r,ri)=>{
+      const rr=makeRace(ri,r.title);
+      const nums=new Set(r.horses.map(h=>h.no));
+      rr.horses.forEach(h=>h.selected=nums.has(h.no));
+      return rr;
+    });
+    savedModal.classList.remove("open");
+    render(); calc();
+    status.innerHTML=`<strong>${getSaved().findIndex(x=>x.id===srcTicket.id)+1}口目をコピーしました。</strong> 必要な箇所を変更して「決定」を押すと、新しい買い目として保存されます。`;
+    window.scrollTo({top:0,behavior:"smooth"});
+  }));
+  savedBody.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{
+    const ticket=getSaved().find(x=>x.id===+b.dataset.edit);
+    if(!ticket)return;
+    savedBody.innerHTML=`
+      <div class="savedSummary"><strong>${date.value}</strong><br>この買い目を修正します。</div>
+      <div class="editGrid">
+        ${ticket.races.map((r,ri)=>`
+          <div class="editRace">
+            <div class="editRaceTitle">WIN5-${ri+1} ${escapeHtml(r.title)}</div>
+            <div class="editHorses">
+              ${Array.from({length:18},(_,i)=>i+1).map(no=>`
+                <div class="editHorse">
+                  <input id="e_${ticket.id}_${ri}_${no}" type="checkbox" data-er="${ri}" data-en="${no}" ${r.horses.some(h=>h.no===no)?"checked":""}>
+                  <label for="e_${ticket.id}_${ri}_${no}">${no}</label>
+                </div>`).join("")}
+            </div>
+          </div>`).join("")}
+      </div>
+      <div class="editFooter"><button id="saveEdit" class="saveEdit">修正を保存</button><button id="cancelEdit" class="cancelEdit">キャンセル</button></div>`;
+    document.getElementById("cancelEdit").addEventListener("click",renderSaved);
+    document.getElementById("saveEdit").addEventListener("click",()=>{
+      const selected=ticket.races.map((r,ri)=>Array.from(savedBody.querySelectorAll(`input[data-er="${ri}"]:checked`)).map(x=>+x.dataset.en));
+      if(selected.some(a=>a.length===0)){alert("5レースすべてで1頭以上選択してください。");return;}
+      if(selected.some(a=>a.length>10)){alert("1レース最大10頭までです。");return;}
+      const counts=selected.map(a=>a.length);
+      ticket.races=ticket.races.map((r,ri)=>({...r,horses:selected[ri].map(no=>({no,odds:"-"}))}));
+      ticket.points=counts.reduce((a,b)=>a*b,1);
+      ticket.amount=ticket.points*100;
+      const all=getSaved().map(x=>x.id===ticket.id?ticket:x);
+      putSaved(all);
+      renderSaved();
+    });
+  }));
+
   savedBody.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{
     if(!confirm("この買い目を削除しますか？"))return;
     putSaved(getSaved().filter(x=>x.id!==+b.dataset.del));renderSaved();
