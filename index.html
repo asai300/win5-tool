@@ -56,7 +56,7 @@ main{max-width:900px;margin:0 auto 130px;padding:16px}.status{background:#fff;bo
 <button id="load" class="load">対象5レースを表示</button>
 </div>
 </div></header>
-<div class="profileBar"><div class="profileName">使用ID：<strong id="currentProfileLabel">-</strong></div><div class="profileRight"><span class="versionTag">v6</span><button id="forceUpdate" class="updateBtn">最新版へ更新</button><button id="switchId" class="switchId">ID切替</button></div></div>
+<div class="profileBar"><div class="profileName">使用ID：<strong id="currentProfileLabel">-</strong></div><div class="profileRight"><span class="versionTag">v7</span><button id="forceUpdate" class="updateBtn">最新版へ更新</button><button id="switchId" class="switchId">ID切替</button></div></div>
 
 <main>
 <div id="status" class="status"><strong>日付を指定して「対象5レースを表示」を押してください。</strong></div>
@@ -365,7 +365,7 @@ async function forceAppUpdate(){
     }
   }catch(e){}
   const url=new URL(location.href);
-  url.searchParams.set("v","6");
+  url.searchParams.set("v","7");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 }
@@ -405,9 +405,31 @@ if(lastProfile && profileList().includes(lastProfile)){
   profileSelect.value=lastProfile;
 }
 
-if("serviceWorker" in navigator && location.protocol.startsWith("http")){
-  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+
+async function disableOldServiceWorkerCache(){
+  try{
+    if("serviceWorker" in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for(const reg of regs){
+        try{ await reg.unregister(); }catch(e){}
+      }
+    }
+    if("caches" in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  }catch(e){}
+  const marker = sessionStorage.getItem("win5_v7_cleanup_done");
+  const params = new URLSearchParams(location.search);
+  if(!marker && !params.has("v7clean")){
+    sessionStorage.setItem("win5_v7_cleanup_done","1");
+    const u = new URL(location.href);
+    u.searchParams.set("v","7");
+    u.searchParams.set("v7clean",Date.now().toString());
+    location.replace(u.toString());
+  }
 }
+disableOldServiceWorkerCache();
 </script>
 </body>
 </html>

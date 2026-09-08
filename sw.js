@@ -1,33 +1,18 @@
-const CACHE='win5-v6';
-const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-512.png'];
-self.addEventListener('install',e=>{
+self.addEventListener('install',event=>{
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));
 });
-self.addEventListener('activate',e=>{
-  e.waitUntil(
-    caches.keys()
-      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
-      .then(()=>self.clients.claim())
-  );
+self.addEventListener('activate',event=>{
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.map(k=>caches.delete(k)));
+    await self.registration.unregister();
+    const clientsList=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    for(const client of clientsList){
+      client.navigate(client.url);
+    }
+  })());
 });
-self.addEventListener('fetch',e=>{
-  if(e.request.mode==='navigate'){
-    e.respondWith(
-      fetch(e.request,{cache:'no-store'})
-        .then(r=>r)
-        .catch(()=>caches.match('./index.html'))
-    );
-    return;
-  }
-  e.respondWith(
-    caches.match(e.request).then(cached=>{
-      const network=fetch(e.request).then(r=>{
-        const copy=r.clone();
-        caches.open(CACHE).then(c=>c.put(e.request,copy));
-        return r;
-      }).catch(()=>cached);
-      return cached || network;
-    })
-  );
+self.addEventListener('fetch',event=>{
+  // Network only. Do not cache HTML/assets.
+  event.respondWith(fetch(event.request,{cache:'no-store'}));
 });
