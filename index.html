@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08733f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WIN5">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<title>WIN5 買い目決定ツール</title>
+<style>
+:root{--bg:#f4f7f5;--card:#fff;--green:#08733f;--line:#d9e5de;--text:#18231d;--muted:#6b786f;--yellow:#f8c923}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;color:var(--text)}
+header{background:var(--green);color:white;padding:22px 16px}.wrap{max-width:900px;margin:auto}.title{font-size:23px;font-weight:900}.sub{opacity:.85;margin-top:4px;font-size:13px}
+.controls{display:grid;gap:10px;margin-top:18px}.datebox{background:white;color:#111;border-radius:15px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+.datebox label{color:#6a746e}.datebox input{border:0;background:transparent;font-size:18px;font-weight:800;width:100%;outline:none}
+button{border:0;border-radius:15px;font-weight:800}.load{background:var(--yellow);padding:15px;font-size:16px}
+main{max-width:900px;margin:0 auto 120px;padding:16px}.status{background:white;border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:12px;line-height:1.5}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.metric{background:white;border:1px solid var(--line);border-radius:14px;padding:12px}.k{font-size:12px;color:var(--muted)}.v{font-size:21px;font-weight:900;margin-top:3px}.green{color:var(--green)}
+.race{background:white;border:1px solid var(--line);border-radius:16px;margin-top:13px;overflow:hidden}.racehead{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;padding:12px;border-bottom:1px solid var(--line)}
+.badge{background:var(--green);color:white;text-align:center;border-radius:999px;padding:7px 3px;font-size:12px;font-weight:900}.rtitle{font-weight:900}.rtitle input{width:100%;border:0;border-bottom:1px dashed #aaa;font:inherit;background:transparent}
+.count{font-size:12px;color:var(--muted)}.horses{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}.horse input{position:absolute;opacity:0}.horse label{display:block;border:1px solid var(--line);border-radius:12px;text-align:center;padding:10px 5px}
+.horse input:checked+label{background:#e6f4ec;border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}.no{display:block;font-size:21px;font-weight:900}.odds{font-size:11px;color:var(--muted)}
+.clearRace{margin:0 12px 12px;padding:9px 12px;color:var(--green);background:#eef5f1}.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:15px}
+.bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.97);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+.bottomin{max-width:900px;margin:auto;display:flex;justify-content:space-between;align-items:center}.big{font-size:22px;font-weight:900}.clearAll{padding:11px 14px;color:var(--green);background:#eef5f1}
+@media(min-width:700px){.controls{grid-template-columns:1fr 260px}.horses{grid-template-columns:repeat(6,1fr)}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<div class="title">WIN5 買い目決定ツール</div>
+<div class="sub">対象レース・馬番選択・点数計算・単勝オッズ表示</div>
+<div class="controls">
+<div class="datebox"><label>対象日</label><input id="date" type="date"></div>
+<button id="load" class="load">対象5レースを表示</button>
+</div>
+</div></header>
+
+<main>
+<div id="status" class="status"><strong>日付を指定して「対象5レースを表示」を押してください。</strong></div>
+<div class="summary">
+<div class="metric"><div class="k">買い目点数</div><div id="points" class="v green">0点</div></div>
+<div class="metric"><div class="k">参考購入金額</div><div id="amount" class="v">¥0</div></div>
+<div class="metric"><div class="k">選択頭数</div><div id="total" class="v">0頭</div></div>
+</div>
+<div id="races"></div>
+<div class="note">※ 各レース最大10頭まで選択できます。買い目点数は5レースの選択頭数の積です。<br>
+※ 現在のPWA版では、日付・馬番選択・点数計算は動作します。JRA単勝オッズの自動取得はサーバー接続後に有効になります。未取得時は「-」表示です。</div>
+</main>
+
+<div class="bottom"><div class="bottomin">
+<div><div style="font-size:11px;color:#6b786f">現在の買い目</div><div class="big"><span id="bpoints">0</span>点 ／ ¥<span id="bamount">0</span></div></div>
+<button id="clearAll" class="clearAll">全選択クリア</button>
+</div></div>
+
+<script>
+const schedule={
+"2026-09-12":["阪神9R","中山10R","阪神10R","中山11R","阪神11R"],
+"2026-09-13":["中山9R","阪神10R","中山10R","阪神11R","中山11R"],
+"2026-09-19":["中山9R","阪神10R","中山10R","阪神11R","中山11R"],
+"2026-09-20":["中山9R","阪神10R","中山10R","阪神11R","中山11R"],
+"2026-09-21":["阪神9R","中山10R","阪神10R","中山11R","阪神11R"]
+};
+let state=[];
+
+function makeRace(i,title){
+  return {title:title||`対象レース${i+1}`,horses:Array.from({length:18},(_,x)=>({no:x+1,selected:false,odds:"-"}))};
+}
+function loadLocal(){
+  const d=document.getElementById("date").value;
+  if(!d){alert("対象日を選択してください。");return;}
+  const titles=schedule[d] || Array.from({length:5},(_,i)=>`対象レース${i+1}`);
+  state=titles.map((t,i)=>makeRace(i,t));
+  document.getElementById("status").innerHTML=schedule[d]
+    ? `<strong>${d} の対象5レースを表示しました。</strong> 馬番を選択してください。`
+    : `<strong>${d} は対象レース名が未登録です。</strong> レース名を手入力して馬番を選択できます。`;
+  render();
+}
+function render(){
+  const root=document.getElementById("races");
+  root.innerHTML="";
+  state.forEach((r,ri)=>{
+    const selected=r.horses.filter(h=>h.selected).length;
+    const el=document.createElement("section");
+    el.className="race";
+    el.innerHTML=`<div class="racehead">
+      <div class="badge">WIN5<br>${ri+1}</div>
+      <div class="rtitle"><input data-title="${ri}" value="${r.title}"></div>
+      <div class="count">選択 ${selected}/10頭</div>
+    </div>
+    <div class="horses">${r.horses.map(h=>`
+      <div class="horse">
+        <input id="h${ri}_${h.no}" type="checkbox" data-r="${ri}" data-n="${h.no}" ${h.selected?"checked":""}>
+        <label for="h${ri}_${h.no}"><span class="no">${h.no}</span><span class="odds">単勝 ${h.odds}</span></label>
+      </div>`).join("")}</div>
+    <button class="clearRace" data-clear="${ri}">このレースをクリア</button>`;
+    root.appendChild(el);
+  });
+  root.querySelectorAll('input[type="checkbox"]').forEach(x=>x.addEventListener("change",e=>{
+    const ri=+e.target.dataset.r, no=+e.target.dataset.n;
+    const r=state[ri], h=r.horses.find(z=>z.no===no);
+    if(e.target.checked && r.horses.filter(z=>z.selected).length>=10){
+      e.target.checked=false; alert("1レース最大10頭までです。"); return;
+    }
+    h.selected=e.target.checked; render(); calc();
+  }));
+  root.querySelectorAll("[data-title]").forEach(x=>x.addEventListener("input",e=>state[+e.target.dataset.title].title=e.target.value));
+  root.querySelectorAll("[data-clear]").forEach(x=>x.addEventListener("click",()=>{
+    state[+x.dataset.clear].horses.forEach(h=>h.selected=false);render();calc();
+  }));
+  calc();
+}
+function calc(){
+  const counts=state.map(r=>r.horses.filter(h=>h.selected).length);
+  const p=(counts.length===5 && counts.every(n=>n>0))?counts.reduce((a,b)=>a*b,1):0;
+  const t=counts.reduce((a,b)=>a+b,0);
+  points.textContent=p.toLocaleString()+"点";
+  amount.textContent="¥"+(p*100).toLocaleString();
+  total.textContent=t+"頭";
+  bpoints.textContent=p.toLocaleString();
+  bamount.textContent=(p*100).toLocaleString();
+}
+document.getElementById("load").addEventListener("click",loadLocal);
+document.getElementById("date").addEventListener("change",loadLocal);
+document.getElementById("clearAll").addEventListener("click",()=>{
+  state.forEach(r=>r.horses.forEach(h=>h.selected=false));render();calc();
+});
+const now=new Date();
+document.getElementById("date").value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
